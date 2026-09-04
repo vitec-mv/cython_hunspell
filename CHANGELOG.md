@@ -1,3 +1,27 @@
+# 2.0.8
+ Re-published after 2.0.7.170-cp3xx wheels were found to require a newer
+ libstdc++ than the manylinux_2_28 policy allows (gcc-toolset-14 was used to
+ compile the static hunspell library). Bumped since package feeds don't allow
+ re-uploading a version that's already published.
+
+# 2.0.7
+ Re-published after 2.0.6.170-cp3xx wheels were found to require glibc >= 2.38
+ (built outside the manylinux container by mistake). Bumped since package feeds
+ don't allow re-uploading a version that's already published.
+
+# 2.0.6-l1.7.0'
+ Revert to use bundled hunspell 1.7.0 because of degraded correction performance with 1.7.3
+
+# 2.0.6
+ Support of multilinux built
+
+# 2.0.5
+- Updated bundled hunspell from 1.7.0 to 1.7.3
+
+# 2.0.4
+- Rebuilt with python 3.12. 
+- Update to Cython>=3.2.4
+
 # 2.0.3
 - Rebuilt with python 3.10 tested
 

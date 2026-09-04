@@ -44,8 +44,7 @@ def extract_contents(file_name, destination='.'):
     tar.close()
 
 def download_and_extract(url, directory=None, skipFound=True):
-    if skipFound and check_file_exists(url, directory, skipFound):
-        return
-
-    download_tar(url, directory)
+    already_downloaded = skipFound and check_file_exists(url, directory, skipFound)
+    if not already_downloaded:
+        download_tar(url, directory)
     extract_contents(file_name_from_url(url, directory), directory)

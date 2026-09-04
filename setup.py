@@ -4,9 +4,13 @@ import glob
 import shutil
 import platform
 from warnings import warn
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from setuptools import setup, find_packages, Extension
-from distutils.command.build import build
-from build_hunspell import pkgconfig, repair_darwin_link_dep_path
+try:
+    from setuptools.command.build import build
+except ImportError:
+    from distutils.command.build import build
+from build_hunspell import pkgconfig, repair_darwin_link_dep_path, HUNSPELL_VERSION
 from collections import defaultdict
 
 try:
@@ -15,7 +19,6 @@ try:
     class bdist_wheel(_bdist_wheel):
         def finalize_options(self):
             _bdist_wheel.finalize_options(self)
-            # Mark us as not a pure python package
             self.root_is_pure = False
 except ImportError:
     print("Could not register bdist_wheel. Make sure the wheel package is installed!")
@@ -102,12 +105,40 @@ class build_darwin_fix(build):
         if platform.system() == 'Darwin':
             repair_darwin_link_dep_path()
 
-def version():
+def base_version():
     with open(os.path.join(BASE_DIR, 'hunspell', '_version.py'), 'r') as ver:
         for line in ver.readlines():
             if line.startswith('__version__ ='):
                 return line.split(' = ')[-1].strip()[1:-1]
     raise ValueError('No version found in hunspell/_version.py')
+
+# Embed the linked hunspell version into the package version so each
+# hunspell-version build gets its own exact, pip-pinnable version. Without
+# this, wheels built for different hunspell versions could share the same
+# package version, making them impossible to tell apart with a `==` pin.
+#
+# Two formats are available via HUNSPELL_VERSION_FORMAT:
+#   - 'release' (default): dot-separated release segment, e.g. 2.0.6.170 for
+#     HUNSPELL_VERSION=1.7.0. Plain digits and dots - nothing a package feed
+#     could mis-encode. Use this if your feed is like Azure Artifacts, which
+#     lists PEP 440 local versions but fails to actually serve the file (the
+#     '+' in the wheel filename isn't handled correctly - see
+#     https://developercommunity.visualstudio.com/t/local-version-segments-for-python-package-feeds/892057).
+#   - 'local': PEP 440 local version segment, e.g. 2.0.6+hunspell172. More
+#     conventional (see PEP 440), and fine on feeds that serve it correctly
+#     (e.g. PyPI).
+VERSION_FORMATS = ('release', 'local')
+
+def version():
+    version_format = os.environ.get('HUNSPELL_VERSION_FORMAT', 'release').strip().lower()
+    if version_format not in VERSION_FORMATS:
+        raise ValueError('HUNSPELL_VERSION_FORMAT must be one of {}, got {!r}'.format(
+            VERSION_FORMATS, version_format))
+
+    hunspell_tag = HUNSPELL_VERSION.replace('.', '')
+    if version_format == 'local':
+        return '{}+hunspell{}'.format(base_version(), hunspell_tag)
+    return '{}.{}'.format(base_version(), hunspell_tag)
 
 setup(
     name='cyhunspell',
@@ -129,7 +160,7 @@ setup(
     test_suite='tests',
     zip_safe=False,
     url='https://github.com/MSeal/cython_hunspell',
-    download_url='https://github.com/MSeal/cython_hunspell/tarball/v' + version(),
+    download_url='https://github.com/MSeal/cython_hunspell/tarball/v' + base_version(),
     package_data=package_data,
     keywords=['hunspell', 'spelling', 'correction'],
     classifiers=[

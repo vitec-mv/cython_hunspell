@@ -1,0 +1,32 @@
+[build-system]
+requires = ["setuptools", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.cibuildwheel]
+build = "cp310-* cp311-* cp312-* cp313-*"
+skip = "*-win32 *-manylinux_i686 *-musllinux*"
+# Pre-generate the C++ source from Cython before each build, matching the Dockerfile approach
+before-build = "pip install 'cython>=3.0,<4.0' && python -m cython --cplus hunspell/hunspell.pyx"
+
+[tool.cibuildwheel.linux]
+archs = ["x86_64", "aarch64"]
+manylinux-x86_64-image = "manylinux_2_28"
+manylinux-aarch64-image = "manylinux_2_28"
+# --disablerepo=epel: EPEL 8 is EOL and its mirrors no longer serve metadata,
+# which makes any `yum install` fail outright while refreshing repo metadata -
+# even though none of these packages come from EPEL (they're all in
+# AlmaLinux 8's BaseOS/PowerTools).
+before-all = "yum install -y --disablerepo=epel autoconf automake libtool gettext-devel gcc-c++"
+# gcc-toolset-14 is first in PATH in the manylinux_2_28 image and produces libstdc++
+# symbols newer than the manylinux_2_28 policy allows. Force the system GCC 8.5 instead.
+environment = { CC = "/usr/bin/gcc", CXX = "/usr/bin/g++" }
+# Linux builds run inside a Docker container, so host-exported env vars
+# aren't visible unless explicitly passed through (unlike macOS, which builds
+# natively - see below). This only matters for a bare `cibuildwheel` call;
+# build_all_hunspell_versions.sh sets these directly via CIBW_ENVIRONMENT_LINUX.
+environment-pass = ["HUNSPELL_VERSION", "HUNSPELL_VERSION_FORMAT"]
+
+[tool.cibuildwheel.macos]
+# gettext is keg-only in brew; --force makes autopoint available in PATH
+before-all = "brew install autoconf automake libtool gettext && brew link gettext --force"
+environment = { HUNSPELL_VERSION = "$HUNSPELL_VERSION", HUNSPELL_VERSION_FORMAT = "$HUNSPELL_VERSION_FORMAT" }
